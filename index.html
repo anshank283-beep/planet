@@ -1,0 +1,783 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Mystery Space Colony</title>
+<meta name="theme-color" content="#02030a" />
+<!-- Tailwind is an enhancement: all critical layout below is also in plain CSS, so the app works even if this CDN is slow/blocked -->
+<script async src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="stylesheet" media="print" onload="this.media='all'" href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@400;500;600&display=swap" />
+<style>
+  :root { --neon:#22e6ff; }
+  * { box-sizing:border-box; }
+  html, body { margin:0; height:100%; background:#02030a; overflow:hidden; color:#dff8ff;
+    font-family:'Rajdhani', system-ui, -apple-system, 'Segoe UI', sans-serif; -webkit-tap-highlight-color:transparent; }
+  .hidden { display:none !important; }
+  .font-title { font-family:'Orbitron', 'Segoe UI', sans-serif; }
+  #scene { position:fixed; inset:0; width:100%; height:100%; display:block; touch-action:none; }
+
+  .glass { background:linear-gradient(145deg, rgba(10,18,40,.78), rgba(14,8,36,.68)); border:1px solid rgba(34,230,255,.3);
+    box-shadow:0 0 22px rgba(34,230,255,.15), inset 0 0 18px rgba(179,107,255,.06);
+    -webkit-backdrop-filter:blur(12px); backdrop-filter:blur(12px); border-radius:16px; }
+  .neon-text { color:#eaffff; text-shadow:0 0 6px rgba(34,230,255,.9), 0 0 22px rgba(34,230,255,.55), 0 0 40px rgba(179,107,255,.4); }
+  .neon-input { width:100%; background:rgba(2,6,20,.75); color:#eaffff; border:1px solid rgba(34,230,255,.35); border-radius:12px;
+    padding:.7rem .9rem; outline:none; font:inherit; font-size:16px; transition:.2s; }
+  .neon-input::placeholder { color:rgba(160,200,220,.5); }
+  .neon-input:focus { border-color:var(--neon); box-shadow:0 0 0 2px rgba(34,230,255,.2), 0 0 18px rgba(34,230,255,.35); }
+  .neon-btn { font-family:'Orbitron', sans-serif; font-weight:700; letter-spacing:.06em; font-size:.78rem; color:#02121a;
+    background:linear-gradient(90deg,#22e6ff,#7aa8ff 55%,#b36bff); border:0; border-radius:12px; padding:.75rem 1.05rem; cursor:pointer;
+    white-space:nowrap; box-shadow:0 0 18px rgba(34,230,255,.5); transition:transform .15s, box-shadow .15s, opacity .2s; }
+  .neon-btn:hover { transform:translateY(-1px); box-shadow:0 0 28px rgba(34,230,255,.8); }
+  .neon-btn:active { transform:scale(.98); }
+  .neon-btn:disabled { opacity:.5; cursor:wait; }
+  .ghost-btn { background:rgba(2,6,20,.65); color:#bfefff; border:1px solid rgba(34,230,255,.35); border-radius:12px; padding:.6rem .8rem;
+    cursor:pointer; font:inherit; font-size:.95rem; transition:.2s; white-space:nowrap; text-decoration:none; display:inline-block; }
+  .ghost-btn:hover { border-color:var(--neon); box-shadow:0 0 14px rgba(34,230,255,.4); }
+
+  /* layout */
+  #top { position:fixed; top:0; left:0; right:0; z-index:30; padding:calc(env(safe-area-inset-top) + .75rem) .75rem .5rem; pointer-events:none;
+    display:flex; flex-direction:column; gap:.75rem; }
+  #top > * { pointer-events:auto; }
+  #rightCol { width:100%; display:flex; flex-direction:column; gap:.6rem; }
+  #searchWrap { position:relative; width:100%; }
+  #my-badge { padding:.7rem .8rem; display:flex; flex-direction:column; gap:.55rem; animation:badgeIn .45s ease; border-color:rgba(61,255,160,.4);
+    box-shadow:0 0 22px rgba(61,255,160,.18), inset 0 0 18px rgba(179,107,255,.06); }
+  @keyframes badgeIn { from { opacity:0; transform:translateY(-10px) scale(.97); } to { opacity:1; transform:none; } }
+  .mb-row { display:flex; align-items:center; gap:.6rem; min-width:0; }
+  .mb-icon { font-size:1.5rem; line-height:1; filter:drop-shadow(0 0 8px rgba(34,230,255,.7)); }
+  .mb-name { font-family:'Orbitron', sans-serif; font-size:.95rem; color:#eaffff; text-shadow:0 0 8px rgba(34,230,255,.8); background:none; border:0; padding:0; cursor:pointer;
+    text-align:left; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:100%; }
+  .mb-sub { font-size:.78rem; color:rgba(200,240,255,.65); display:flex; align-items:center; gap:.4rem; flex-wrap:wrap; }
+  .mb-actions { display:flex; gap:.5rem; }
+  .mb-actions .ghost-btn { flex:1; padding:.5rem .7rem; font-size:.9rem; text-align:center; }
+  .danger { border-color:rgba(255,80,120,.55) !important; color:#ffc2d0 !important; }
+  .danger:hover { box-shadow:0 0 14px rgba(255,80,120,.5) !important; }
+  .danger.armed { background:rgba(255,80,120,.25) !important; color:#fff !important; }
+  #search-form { display:flex; gap:.5rem; align-items:center; padding:.5rem; }
+  #search-list { position:absolute; left:0; right:0; top:100%; margin-top:4px; max-height:38vh; overflow:auto; }
+  #search-list button { display:block; width:100%; text-align:left; padding:.55rem .85rem; color:#cfeeff; background:transparent; border:0; cursor:pointer; font:inherit; }
+  #search-list button:hover { background:rgba(34,230,255,.14); }
+  #bottom { position:fixed; left:0; right:0; bottom:0; z-index:30; display:flex; flex-direction:column; align-items:center; gap:.75rem;
+    padding:.75rem .75rem calc(env(safe-area-inset-bottom) + .75rem); pointer-events:none; }
+  #bottom > * { pointer-events:auto; width:100%; max-width:34rem; }
+  #claim-form { padding:.85rem; }
+  .claim-row { display:flex; gap:.5rem; }
+  .claim-field { position:relative; flex:1; min-width:0; }
+  .claim-field span { position:absolute; left:.8rem; top:50%; transform:translateY(-50%); color:rgba(120,230,255,.75); user-select:none; }
+  #username { padding-left:1.8rem; }
+  #info { padding:.9rem; }
+  .info-row { display:flex; align-items:flex-start; justify-content:space-between; gap:.75rem; }
+  @media (min-width:768px) {
+    #top { flex-direction:row; justify-content:space-between; align-items:flex-start; padding:1.25rem; }
+    #rightCol { width:26rem; }
+    #bottom { padding:1.25rem; }
+  }
+  @media (max-width:420px) { #claim-btn { padding:.75rem .7rem; font-size:.68rem; } }
+
+  #toast { position:fixed; left:50%; top:42%; transform:translate(-50%,-20px); opacity:0; pointer-events:none; z-index:50;
+    max-width:92vw; text-align:center; padding:.85rem 1.3rem; border-radius:16px; font-weight:600; font-size:1.05rem; transition:opacity .35s, transform .35s; }
+  #toast.show { opacity:1; transform:translate(-50%,0); }
+  #toast.info { background:rgba(8,20,44,.92); border:1px solid rgba(34,230,255,.6); box-shadow:0 0 24px rgba(34,230,255,.4); }
+  #toast.error { background:rgba(40,8,20,.94); border:1px solid rgba(255,80,120,.7); box-shadow:0 0 24px rgba(255,80,120,.4); }
+  #toast.ringed { background:rgba(24,12,48,.94); border:1px solid rgba(179,107,255,.8); box-shadow:0 0 30px rgba(179,107,255,.6); }
+  #toast.rare { font-family:'Orbitron', sans-serif; font-size:1rem; color:#2a1900; background:linear-gradient(120deg,#fff3b0,#ffd25e 40%,#ffb42e 70%,#fff3b0);
+    border:1px solid #fff0b0; box-shadow:0 0 40px rgba(255,210,94,.9), 0 0 90px rgba(255,180,50,.5); animation:pulseGold 1.1s ease-in-out infinite alternate; }
+  @keyframes pulseGold { from { filter:brightness(1); } to { filter:brightness(1.25); } }
+
+  #loader { position:fixed; inset:0; z-index:60; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:18px; text-align:center; padding:1rem;
+    background:radial-gradient(circle at 50% 50%, #0a0f26, #02030a 70%); transition:opacity .6s; }
+  #loader.hide { opacity:0; pointer-events:none; }
+  .spinner { width:54px; height:54px; border-radius:50%; border:3px solid rgba(34,230,255,.2); border-top-color:var(--neon); animation:spin 1s linear infinite; box-shadow:0 0 20px rgba(34,230,255,.4); }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  .dot { width:9px; height:9px; border-radius:50%; display:inline-block; background:#ffb84d; box-shadow:0 0 8px #ffb84d; margin-right:.4rem; }
+  .dot.live { background:#3dffa0; box-shadow:0 0 10px #3dffa0; }
+  .dot.err { background:#ff5078; box-shadow:0 0 10px #ff5078; }
+  .badge { font-family:'Orbitron', sans-serif; font-size:.62rem; letter-spacing:.1em; padding:.2rem .55rem; border-radius:999px; border:1px solid; }
+  .b-rocky { color:#9fe7ff; border-color:#9fe7ff66; }
+  .b-ringed { color:#d3a8ff; border-color:#d3a8ff88; box-shadow:0 0 10px #b36bff55; }
+  .b-golden { color:#ffe08a; border-color:#ffd25eaa; box-shadow:0 0 14px #ffd25e88; }
+</style>
+</head>
+<body>
+
+<canvas id="scene"></canvas>
+
+<div id="loader">
+  <div class="spinner" id="spinner"></div>
+  <div class="font-title neon-text" id="loader-text" style="font-size:.85rem;letter-spacing:.2em">LAUNCHING COLONY…</div>
+  <button id="reload-btn" class="neon-btn hidden" onclick="location.reload()">RELOAD</button>
+</div>
+
+<div id="toast" class="info"></div>
+
+<header id="top">
+  <div>
+    <h1 class="font-title neon-text" style="margin:0;font-weight:900;font-size:clamp(1.15rem,4.6vw,1.9rem);letter-spacing:.08em;line-height:1.1">MYSTERY SPACE COLONY</h1>
+    <div style="margin-top:.45rem;font-size:.9rem;color:rgba(200,240,255,.8)">
+      <span id="status-dot" class="dot"></span><span id="status-text">Connecting…</span>
+      <span style="opacity:.4;margin:0 .5rem">|</span>
+      <span><span id="count" class="font-title" style="color:#9ff0ff">0</span> planets</span>
+    </div>
+  </div>
+  <div id="rightCol">
+    <div id="searchWrap">
+      <form id="search-form" class="glass" autocomplete="off">
+        <input id="search" class="neon-input" style="padding:.55rem .8rem" placeholder="🔍 Find a username…" maxlength="31" autocapitalize="none" autocorrect="off" spellcheck="false" />
+        <button type="submit" class="neon-btn" style="padding:.6rem .85rem">GO</button>
+        <button type="button" id="reset" class="ghost-btn" title="Reset view" style="padding:.5rem .75rem">⟲</button>
+      </form>
+      <div id="search-list" class="glass hidden"></div>
+    </div>
+    <!-- Shown instead of the claim form once this device has claimed a planet -->
+    <section id="my-badge" class="glass hidden" aria-live="polite"></section>
+  </div>
+</header>
+
+<main id="bottom">
+  <section id="info" class="glass hidden">
+    <div class="info-row">
+      <div style="min-width:0">
+        <div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap">
+          <span id="info-name" class="font-title neon-text" style="font-size:1.05rem;word-break:break-all"></span>
+          <span id="info-badge" class="badge"></span>
+        </div>
+        <div id="info-date" style="font-size:.9rem;color:rgba(200,240,255,.65);margin-top:.3rem"></div>
+      </div>
+      <div style="display:flex;gap:.5rem;flex-shrink:0">
+        <a id="info-link" class="ghost-btn" target="_blank" rel="noopener noreferrer">Instagram ↗</a>
+        <button id="info-close" class="ghost-btn" aria-label="Close">✕</button>
+      </div>
+    </div>
+  </section>
+
+  <form id="claim-form" class="glass" autocomplete="off">
+    <label for="username" class="font-title" style="display:block;font-size:.68rem;letter-spacing:.2em;color:rgba(160,235,255,.85);margin-bottom:.5rem">CLAIM YOUR PLANET</label>
+    <div class="claim-row">
+      <div class="claim-field">
+        <span>@</span>
+        <input id="username" class="neon-input" placeholder="your_instagram" maxlength="31" autocapitalize="none" autocorrect="off" spellcheck="false" />
+      </div>
+      <button id="claim-btn" type="submit" class="neon-btn">CLAIM MY PLANET</button>
+    </div>
+    <p style="font-size:.78rem;color:rgba(200,240,255,.5);margin:.5rem 0 0">70% rocky · 20% ringed · 10% rare golden</p>
+  </form>
+</main>
+
+<script>
+/* ═══════════════════════════════════════════════════════════
+   Mystery Space Colony  —  single file, no ES modules
+   (classic scripts + fallback CDNs = no CORS / file:// issues)
+   ═══════════════════════════════════════════════════════════ */
+(function () {
+'use strict';
+
+var firebaseConfig = {
+    apiKey: "AIzaSyAmXdtrS7nyuLdLy3JKuK0V_gHET_vLQmk",
+    authDomain: "mysterys-f88f0.firebaseapp.com",
+    projectId: "mysterys-f88f0",
+    storageBucket: "mysterys-f88f0.firebasestorage.app",
+    messagingSenderId: "235735272186",
+    appId: "1:235735272186:web:80346bd4783444db27d743",
+    measurementId: "G-DJDWNNFQR1"
+};
+var COLLECTION = 'space_colonists_v2';
+var CACHE_KEY = 'msc_space_colonists_v2_cache';
+var CLAIM_KEY = 'msc_my_claim_v2';   // this device's single claimed username
+
+var $ = function (id) { return document.getElementById(id); };
+function clamp(v, a, b) { return Math.min(b, Math.max(a, v)); }
+function hashStr(s) { var h = 2166136261 >>> 0; for (var i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
+function mulberry32(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; var t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+var USER_RE = /^[A-Za-z0-9._]{1,30}$/;
+function normalize(s) { return String(s || '').trim().replace(/^@+/, ''); }
+var TYPE_LABEL = { rocky: 'ROCKY', ringed: 'RINGED', golden: 'RARE GOLDEN' };
+
+/* ── script loader with fallbacks + timeout ── */
+function loadScript(urls, timeoutMs) {
+  timeoutMs = timeoutMs || 9000;
+  return urls.reduce(function (chain, url) {
+    return chain.catch(function () {
+      return new Promise(function (res, rej) {
+        var s = document.createElement('script'), done = false;
+        var t = setTimeout(function () { if (!done) { done = true; s.remove(); rej(new Error('timeout ' + url)); } }, timeoutMs);
+        s.src = url; s.async = true;
+        s.onload = function () { if (!done) { done = true; clearTimeout(t); res(); } };
+        s.onerror = function () { if (!done) { done = true; clearTimeout(t); s.remove(); rej(new Error('failed ' + url)); } };
+        document.head.appendChild(s);
+      });
+    });
+  }, Promise.reject());
+}
+
+/* ── UI helpers ── */
+var toastTimer;
+function toast(msg, kind, ms) {
+  var t = $('toast'); t.className = kind || 'info'; t.textContent = msg;
+  void t.offsetWidth; t.classList.add('show');
+  clearTimeout(toastTimer); toastTimer = setTimeout(function () { t.classList.remove('show'); }, ms || 3200);
+}
+function setStatus(kind, text) { $('status-dot').className = 'dot ' + (kind || ''); $('status-text').textContent = text; }
+function hideLoader() { $('loader').classList.add('hide'); setTimeout(function () { $('loader').style.display = 'none'; }, 700); }
+function loaderFail(msg) {
+  $('spinner').classList.add('hidden'); $('loader-text').textContent = msg; $('loader-text').style.letterSpacing = '.05em';
+  $('reload-btn').classList.remove('hidden');
+}
+
+/* Fail-safe: never leave the user on the loading screen */
+setTimeout(function () { if (!window.THREE) loaderFail('Could not load the 3D engine. Check your internet connection and reload.'); }, 12000);
+
+/* ═════════════ Boot: load Three.js, then start everything ═════════════ */
+loadScript([
+  'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js',
+  'https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js',
+  'https://unpkg.com/three@0.128.0/build/three.min.js'
+]).then(startApp).catch(function () {
+  loaderFail('Could not load the 3D engine. Check your internet connection and reload.');
+});
+
+function startApp() {
+var THREE = window.THREE;
+
+/* ───────── Renderer / scene / camera ───────── */
+var canvas = $('scene');
+var renderer;
+try { renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, powerPreference: 'high-performance' }); }
+catch (e) { loaderFail('WebGL is not available on this device/browser.'); return; }
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.outputEncoding = THREE.sRGBEncoding;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.1;
+
+var scene = new THREE.Scene();
+scene.background = new THREE.Color(0x02030a);
+var camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 1500);
+
+scene.add(new THREE.AmbientLight(0x6070a0, 0.5));
+scene.add(new THREE.PointLight(0xffe2b0, 3.2, 0, 0)); // sun light at origin
+
+function tex(canvasEl, srgb) { var t = new THREE.CanvasTexture(canvasEl); if (srgb !== false) t.encoding = THREE.sRGBEncoding; return t; }
+function glowTexture(inner, outer) {
+  var c = document.createElement('canvas'); c.width = c.height = 256; var g = c.getContext('2d');
+  var gr = g.createRadialGradient(128, 128, 0, 128, 128, 128);
+  gr.addColorStop(0, inner); gr.addColorStop(0.35, outer); gr.addColorStop(1, 'rgba(0,0,0,0)');
+  g.fillStyle = gr; g.fillRect(0, 0, 256, 256); return tex(c);
+}
+function glowSprite(t, scale, opacity) {
+  var s = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, opacity: opacity == null ? 1 : opacity }));
+  s.scale.set(scale, scale, 1); return s;
+}
+
+/* ───────── Stars ───────── */
+function makeStars(count, radius, size) {
+  var pos = new Float32Array(count * 3), col = new Float32Array(count * 3), c = new THREE.Color();
+  for (var i = 0; i < count; i++) {
+    var r = radius * (0.5 + Math.random() * 0.5), th = Math.random() * Math.PI * 2, ph = Math.acos(2 * Math.random() - 1);
+    pos[i * 3] = r * Math.sin(ph) * Math.cos(th); pos[i * 3 + 1] = r * Math.cos(ph); pos[i * 3 + 2] = r * Math.sin(ph) * Math.sin(th);
+    c.setHSL(0.5 + Math.random() * 0.2, 0.5, 0.7 + Math.random() * 0.3);
+    col[i * 3] = c.r; col[i * 3 + 1] = c.g; col[i * 3 + 2] = c.b;
+  }
+  var g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  return new THREE.Points(g, new THREE.PointsMaterial({ size: size, vertexColors: true, sizeAttenuation: true, transparent: true, opacity: 0.85, depthWrite: false }));
+}
+var stars1 = makeStars(2500, 700, 1.2), stars2 = makeStars(900, 520, 2.0);
+scene.add(stars1, stars2);
+
+/* ───────── Sun ───────── */
+var sunGroup = new THREE.Group(), sunMesh, sunGlow1, sunGlow2;
+(function () {
+  var c = document.createElement('canvas'); c.width = 512; c.height = 256; var g = c.getContext('2d');
+  var gr = g.createLinearGradient(0, 0, 0, 256); gr.addColorStop(0, '#ffb43a'); gr.addColorStop(.5, '#ffe38a'); gr.addColorStop(1, '#ff8a1f');
+  g.fillStyle = gr; g.fillRect(0, 0, 512, 256);
+  var rnd = mulberry32(7);
+  for (var i = 0; i < 260; i++) {
+    g.fillStyle = 'rgba(' + (rnd() > .5 ? '255,250,200' : '255,120,20') + ',' + (0.08 + rnd() * 0.14) + ')';
+    g.beginPath(); g.arc(rnd() * 512, rnd() * 256, 3 + rnd() * 22, 0, 7); g.fill();
+  }
+  sunMesh = new THREE.Mesh(new THREE.SphereGeometry(4.2, 48, 48), new THREE.MeshBasicMaterial({ map: tex(c) }));
+  sunGlow1 = glowSprite(glowTexture('rgba(255,230,160,1)', 'rgba(255,150,40,.55)'), 22, 0.95);
+  sunGlow2 = glowSprite(glowTexture('rgba(255,160,60,.55)', 'rgba(255,90,20,.18)'), 48, 0.7);
+  sunGroup.add(sunMesh, sunGlow1, sunGlow2); scene.add(sunGroup);
+})();
+
+/* ───────── Planet factories ───────── */
+function rockyTexture(rnd) {
+  var c = document.createElement('canvas'); c.width = 256; c.height = 128; var g = c.getContext('2d'), i;
+  var hue = Math.floor(rnd() * 360), sat = 35 + rnd() * 40, lig = 38 + rnd() * 18;
+  g.fillStyle = 'hsl(' + hue + ',' + sat + '%,' + lig + '%)'; g.fillRect(0, 0, 256, 128);
+  for (i = 0; i < 18; i++) { g.fillStyle = 'hsla(' + (hue + rnd() * 60 - 30) + ',' + sat + '%,' + (lig + rnd() * 30 - 15) + '%,' + (0.15 + rnd() * 0.25) + ')'; g.fillRect(0, rnd() * 128, 256, 2 + rnd() * 14); }
+  for (i = 0; i < 160; i++) { g.fillStyle = 'hsla(' + (hue + rnd() * 80 - 40) + ',' + sat + '%,' + (lig + rnd() * 36 - 18) + '%,' + (0.1 + rnd() * 0.3) + ')'; g.beginPath(); g.arc(rnd() * 256, rnd() * 128, 1 + rnd() * 10, 0, 7); g.fill(); }
+  var t = tex(c); t.wrapS = THREE.RepeatWrapping; return t;
+}
+function ringTexture(rnd, hue) {
+  var c = document.createElement('canvas'); c.width = 512; c.height = 4; var g = c.getContext('2d');
+  for (var x = 0; x < 512; x++) { var a = rnd() > 0.82 ? 0.05 : 0.35 + rnd() * 0.5; g.fillStyle = 'hsla(' + (hue + rnd() * 20) + ',60%,' + (62 + rnd() * 20) + '%,' + a + ')'; g.fillRect(x, 0, 1, 4); }
+  return tex(c);
+}
+function makeRing(inner, outer, rnd, hue) {
+  var geo = new THREE.RingGeometry(inner, outer, 96, 1), p = geo.attributes.position, uv = geo.attributes.uv, v = new THREE.Vector3();
+  for (var i = 0; i < p.count; i++) { v.fromBufferAttribute(p, i); uv.setXY(i, (v.length() - inner) / (outer - inner), 0.5); }
+  var m = new THREE.MeshStandardMaterial({ map: ringTexture(rnd, hue), side: THREE.DoubleSide, transparent: true, roughness: 0.9, metalness: 0, depthWrite: false });
+  var mesh = new THREE.Mesh(geo, m); mesh.rotation.x = Math.PI / 2; return mesh;
+}
+function labelSprite(text, golden) {
+  var c = document.createElement('canvas'); c.width = 512; c.height = 112; var g = c.getContext('2d');
+  g.font = '600 46px Rajdhani, "Segoe UI", sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.shadowColor = golden ? '#ffd25e' : '#22e6ff'; g.shadowBlur = 16; g.fillStyle = golden ? '#fff3c4' : '#e6fdff';
+  g.fillText('@' + text, 256, 56);
+  var s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex(c), transparent: true, depthWrite: false, depthTest: false }));
+  s.scale.set(4.4, 0.96, 1); s.renderOrder = 10; return s;
+}
+var glowTexGold = glowTexture('rgba(255,235,150,.95)', 'rgba(255,190,60,.35)');
+var glowTexAtm = glowTexture('rgba(120,220,255,.25)', 'rgba(80,160,255,.12)');
+
+var planets = {};            // key -> planet
+var planetCount = 0;
+var pickables = [];
+var pendingFocus = null;
+
+function addPlanet(data) {
+  var key = data.username.toLowerCase();
+  if (planets[key]) return planets[key];
+
+  var h = hashStr(key), rnd = mulberry32((data.seed != null ? data.seed : h) >>> 0);
+  var type = (data.type === 'ringed' || data.type === 'golden') ? data.type : 'rocky';
+  var radius = 9 + ((h % 997) / 997) * 26;
+  var angle0 = (((h >>> 10) % 3600) / 3600) * Math.PI * 2;
+  var incl = ((((h >>> 20) % 200) / 200) - 0.5) * 0.28;
+  var dir = (h & 1) ? 1 : -1;
+  var speed = dir * (0.9 / Math.pow(radius, 1.1)) * (0.8 + ((h >>> 5) % 50) / 120);
+  var size = (0.55 + ((h >>> 3) % 40) / 100) * (type === 'golden' ? 1.2 : 1);
+
+  var pivot = new THREE.Group(); pivot.rotation.x = incl; pivot.rotation.z = incl * 0.5; scene.add(pivot);
+  var pts = [], i;
+  for (i = 0; i <= 128; i++) { var a = i / 128 * Math.PI * 2; pts.push(new THREE.Vector3(Math.cos(a) * radius, 0, Math.sin(a) * radius)); }
+  pivot.add(new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(pts),
+    new THREE.LineBasicMaterial({ color: type === 'golden' ? 0xffd25e : 0x4fd8ff, transparent: true, opacity: type === 'golden' ? 0.22 : 0.07 })));
+
+  var holder = new THREE.Group(); pivot.add(holder);
+  var body, extra = {};
+  if (type === 'golden') {
+    body = new THREE.Mesh(new THREE.IcosahedronGeometry(size, 1),
+      new THREE.MeshStandardMaterial({ color: 0xffd25e, emissive: 0xff9d1a, emissiveIntensity: 0.9, metalness: 0.9, roughness: 0.18, flatShading: true }));
+    extra.glow = glowSprite(glowTexGold, size * 7.5, 0.95); holder.add(extra.glow);
+    extra.halo = new THREE.Mesh(new THREE.IcosahedronGeometry(size * 1.35, 1), new THREE.MeshBasicMaterial({ color: 0xffe9a0, wireframe: true, transparent: true, opacity: 0.25 }));
+    holder.add(extra.halo);
+    holder.add(new THREE.PointLight(0xffc860, 1.4, 14, 1.6));
+  } else {
+    body = new THREE.Mesh(new THREE.SphereGeometry(size, 36, 36), new THREE.MeshStandardMaterial({ map: rockyTexture(rnd), roughness: 0.85, metalness: 0.05 }));
+    if (type === 'ringed') {
+      var ring = makeRing(size * 1.45, size * 2.5, rnd, Math.floor(rnd() * 360));
+      ring.rotation.x = Math.PI / 2 + (0.25 + rnd() * 0.35); ring.rotation.y = rnd() * 0.6; holder.add(ring);
+    } else holder.add(glowSprite(glowTexAtm, size * 3.6, 0.8));
+  }
+  body.userData.key = key; holder.add(body); pickables.push(body);
+  var label = labelSprite(data.username, type === 'golden'); label.position.set(0, size + 1.0, 0); holder.add(label);
+  holder.scale.setScalar(0.001);
+
+  var p = { key: key, data: { username: data.username, type: type, seed: data.seed, createdAt: data.createdAt }, pivot: pivot, holder: holder, body: body, label: label,
+    extra: extra, size: size, radius: radius, angle: angle0, speed: speed, spin: 0.2 + rnd() * 0.5, born: performance.now(), type: type };
+  planets[key] = p; planetCount++; $('count').textContent = planetCount;
+  if (pendingFocus === key) { pendingFocus = null; setTimeout(function () { focusPlanet(key); }, 300); }
+  return p;
+}
+function removePlanet(key) {
+  var p = planets[key]; if (!p) return;
+  scene.remove(p.pivot); delete planets[key]; planetCount--;
+  var i = pickables.indexOf(p.body); if (i >= 0) pickables.splice(i, 1);
+  if (focus === p) clearFocus();
+  $('count').textContent = planetCount;
+}
+
+/* ───────── Camera controller (own implementation: drag / wheel / pinch) ───────── */
+var HOME_DIST = 54, HOME_PHI = 1.15, FOCUS_DIST = 4.2;
+var cam = { target: new THREE.Vector3(), theta: 0.3, phi: HOME_PHI, dist: HOME_DIST, goalDist: HOME_DIST, vT: 0, vP: 0, auto: true, dragging: false };
+var focus = null, flyUntil = 0, resetting = false, resumeTimer = null;
+var pointers = {}, pinchPrev = 0, downX = 0, downY = 0, downT = 0, moved = 0;
+
+function userTouchedCamera() { cam.auto = false; resetting = false; flyUntil = 0; clearTimeout(resumeTimer); }
+function scheduleResume() { clearTimeout(resumeTimer); resumeTimer = setTimeout(function () { if (!focus) cam.auto = true; }, 3500); }
+function pointerCount() { return Object.keys(pointers).length; }
+canvas.addEventListener('pointerdown', function (e) {
+  pointers[e.pointerId] = { x: e.clientX, y: e.clientY };
+  try { canvas.setPointerCapture(e.pointerId); } catch (x) {}
+  cam.dragging = true; userTouchedCamera(); cam.vT = cam.vP = 0;
+  if (pointerCount() === 1) { downX = e.clientX; downY = e.clientY; downT = performance.now(); moved = 0; }
+  pinchPrev = 0;
+});
+canvas.addEventListener('pointermove', function (e) {
+  var p = pointers[e.pointerId]; if (!p) return;
+  var dx = e.clientX - p.x, dy = e.clientY - p.y; p.x = e.clientX; p.y = e.clientY;
+  moved += Math.abs(dx) + Math.abs(dy);
+  var n = pointerCount();
+  if (n === 1) {
+    cam.vT = -dx * 0.005; cam.vP = -dy * 0.005;
+    cam.theta += cam.vT; cam.phi = clamp(cam.phi + cam.vP, 0.12, Math.PI - 0.12);
+  } else if (n >= 2) {
+    var ids = Object.keys(pointers), a = pointers[ids[0]], b = pointers[ids[1]];
+    var d = Math.hypot(a.x - b.x, a.y - b.y);
+    if (pinchPrev) cam.goalDist = clamp(cam.goalDist * (pinchPrev / d), 1.8, 140);
+    pinchPrev = d;
+  }
+});
+function endPointer(e) {
+  if (!pointers[e.pointerId]) return;
+  var wasSingle = pointerCount() === 1; delete pointers[e.pointerId]; pinchPrev = 0;
+  if (pointerCount() === 0) { cam.dragging = false; scheduleResume(); }
+  if (wasSingle && e.type === 'pointerup' && moved < 8 && performance.now() - downT < 400) pickAt(e.clientX, e.clientY);
+}
+canvas.addEventListener('pointerup', endPointer);
+canvas.addEventListener('pointercancel', endPointer);
+canvas.addEventListener('wheel', function (e) {
+  e.preventDefault(); userTouchedCamera(); scheduleResume();
+  cam.goalDist = clamp(cam.goalDist * Math.exp(e.deltaY * 0.0012), 1.8, 140);
+}, { passive: false });
+
+var ray = new THREE.Raycaster(), ndc = new THREE.Vector2(), tmp = new THREE.Vector3(), ZERO = new THREE.Vector3();
+function pickAt(x, y) {
+  ndc.set((x / window.innerWidth) * 2 - 1, -(y / window.innerHeight) * 2 + 1);
+  ray.setFromCamera(ndc, camera);
+  var hits = ray.intersectObjects(pickables, false);
+  if (hits.length) focusPlanet(hits[0].object.userData.key);
+}
+
+function fmtDate(ts) {
+  try {
+    var d = ts && ts.toDate ? ts.toDate() : (ts instanceof Date ? ts : (typeof ts === 'number' ? new Date(ts) : null));
+    return d ? 'Claimed ' + d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) : 'Claimed just now';
+  } catch (e) { return ''; }
+}
+function showInfo(p) {
+  $('info').classList.remove('hidden');
+  $('info-name').textContent = '@' + p.data.username;
+  var b = $('info-badge'); b.textContent = TYPE_LABEL[p.type]; b.className = 'badge b-' + p.type;
+  $('info-date').textContent = fmtDate(p.data.createdAt);
+  $('info-link').href = 'https://instagram.com/' + encodeURIComponent(p.data.username);
+}
+function focusPlanet(key) {
+  var p = planets[String(key).toLowerCase()]; if (!p) return false;
+  focus = p; resetting = false; cam.auto = false; cam.goalDist = FOCUS_DIST + p.size * 1.5;
+  flyUntil = performance.now() + 2600; showInfo(p); return true;
+}
+function clearFocus() {
+  focus = null; $('info').classList.add('hidden');
+  resetting = true; cam.goalDist = HOME_DIST; flyUntil = performance.now() + 2400;
+}
+function updateCamera(dt, now) {
+  if (focus) {
+    focus.holder.getWorldPosition(tmp);
+    if (now < flyUntil) cam.target.lerp(tmp, 0.1); else cam.target.copy(tmp);
+  } else if (resetting) {
+    cam.target.lerp(ZERO, 0.06); cam.phi += (HOME_PHI - cam.phi) * 0.04;
+    if (now > flyUntil) { resetting = false; cam.auto = true; }
+  }
+  if (cam.auto && !cam.dragging) cam.theta += dt * 0.09;
+  if (!cam.dragging) { cam.theta += cam.vT; cam.phi = clamp(cam.phi + cam.vP, 0.12, Math.PI - 0.12); cam.vT *= 0.92; cam.vP *= 0.92; }
+  cam.dist += (cam.goalDist - cam.dist) * 0.1;
+  var sp = Math.sin(cam.phi);
+  camera.position.set(cam.target.x + cam.dist * sp * Math.sin(cam.theta), cam.target.y + cam.dist * Math.cos(cam.phi), cam.target.z + cam.dist * sp * Math.cos(cam.theta));
+  camera.lookAt(cam.target);
+}
+
+/* ───────── Render loop ───────── */
+var clock = new THREE.Clock();
+function animate() {
+  requestAnimationFrame(animate);
+  var dt = Math.min(clock.getDelta(), 0.05), t = clock.elapsedTime, now = performance.now();
+  stars1.rotation.y += dt * 0.004; stars2.rotation.y -= dt * 0.006;
+  sunMesh.rotation.y += dt * 0.05;
+  sunGlow1.scale.setScalar(22 * (1 + Math.sin(t * 1.4) * 0.03));
+  sunGlow2.scale.setScalar(48 * (1 + Math.sin(t * 0.9 + 1) * 0.04));
+  for (var k in planets) {
+    var p = planets[k];
+    p.angle += p.speed * dt * 3;
+    p.holder.position.set(Math.cos(p.angle) * p.radius, 0, Math.sin(p.angle) * p.radius);
+    p.body.rotation.y += p.spin * dt;
+    if (p.type === 'golden') { p.extra.halo.rotation.y -= dt * 0.6; p.extra.halo.rotation.x += dt * 0.3; p.extra.glow.material.opacity = 0.75 + Math.sin(t * 3 + p.radius) * 0.2; }
+    var s = clamp((now - p.born) / 1400, 0, 1), e = 1 - Math.pow(1 - s, 3), over = s < 1 ? 1 + Math.sin(s * Math.PI) * 0.35 : 1;
+    p.holder.scale.setScalar(Math.max(e * over, 0.001));
+    var d = camera.position.distanceTo(p.holder.position);
+    p.label.material.opacity = (focus === p) ? 1 : clamp(1 - (d - 24) / 40, 0, 0.9);
+    p.label.visible = p.label.material.opacity > 0.02;
+  }
+  updateCamera(dt, now);
+  renderer.render(scene, camera);
+}
+animate();
+window.addEventListener('resize', function () {
+  camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+/* The 3D world is ready — drop the loading screen immediately */
+hideLoader();
+
+/* ═════════════ Data layer: cache + Firestore ═════════════ */
+function readCache() { try { return JSON.parse(localStorage.getItem(CACHE_KEY) || '{}') || {}; } catch (e) { return {}; } }
+function writeCache(obj) { try { localStorage.setItem(CACHE_KEY, JSON.stringify(obj)); } catch (e) {} }
+var cache = readCache();
+function cacheAdd(d) { cache[d.username.toLowerCase()] = { username: d.username, type: d.type, seed: d.seed }; writeCache(cache); }
+function cacheDel(key) { delete cache[key]; writeCache(cache); }
+
+// Show everything we know instantly (last visit), Firestore then confirms/adds the rest
+Object.keys(cache).forEach(function (k) { var d = cache[k]; if (d && d.username) addPlanet(d); });
+
+var db = null, col = null, firebaseReady = false, gotSnapshot = false;
+
+/* ── This device's single claim (persisted in localStorage) ── */
+function readMyClaim() { try { var v = JSON.parse(localStorage.getItem(CLAIM_KEY) || 'null'); return v && v.username ? { username: String(v.username) } : null; } catch (e) { return null; } }
+var myClaim = readMyClaim();
+var badgeMode = 'view';       // 'view' | 'rename' | 'confirm'
+var armTimer = null;
+var ICON = { rocky: '🌍', ringed: '🪐', golden: '✨' };
+function myKey() { return myClaim ? myClaim.username.toLowerCase() : null; }
+function saveMyClaim(name) { myClaim = { username: name }; try { localStorage.setItem(CLAIM_KEY, JSON.stringify(myClaim)); } catch (e) {} badgeMode = 'view'; renderClaim(); }
+function clearMyClaim() { myClaim = null; try { localStorage.removeItem(CLAIM_KEY); } catch (e) {} badgeMode = 'view'; clearTimeout(armTimer); renderClaim(); }
+
+function el(tag, cls, text) { var n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; }
+function renderClaim() {
+  var badge = $('my-badge'), form = $('claim-form');
+  if (!myClaim) { badge.classList.add('hidden'); badge.innerHTML = ''; form.classList.remove('hidden'); return; }
+  form.classList.add('hidden'); badge.classList.remove('hidden'); badge.innerHTML = '';
+  var p = planets[myKey()], name = p ? p.data.username : myClaim.username, type = p ? p.type : 'rocky';
+
+  var row = el('div', 'mb-row');
+  row.appendChild(el('span', 'mb-icon', ICON[type]));
+  var col1 = el('div'); col1.style.minWidth = '0'; col1.style.flex = '1';
+  col1.appendChild(el('div', 'font-title', 'YOUR PLANET')).style.cssText = 'font-size:.6rem;letter-spacing:.2em;color:rgba(160,235,255,.8)';
+
+  if (badgeMode === 'rename') {
+    var inp = el('input', 'neon-input'); inp.value = name; inp.maxLength = 31; inp.id = 'rename-input';
+    inp.style.cssText = 'padding:.45rem .65rem;margin-top:.25rem'; inp.setAttribute('autocapitalize', 'none'); inp.setAttribute('autocorrect', 'off'); inp.spellcheck = false;
+    inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); renameClaim(inp.value); } else if (e.key === 'Escape') { badgeMode = 'view'; renderClaim(); } });
+    col1.appendChild(inp); row.appendChild(col1); badge.appendChild(row);
+    var act = el('div', 'mb-actions');
+    var save = el('button', 'ghost-btn', 'Save'); save.type = 'button'; save.style.borderColor = 'rgba(61,255,160,.6)'; save.addEventListener('click', function () { renameClaim(inp.value); });
+    var cancel = el('button', 'ghost-btn', 'Cancel'); cancel.type = 'button'; cancel.addEventListener('click', function () { badgeMode = 'view'; renderClaim(); });
+    act.appendChild(save); act.appendChild(cancel); badge.appendChild(act);
+    setTimeout(function () { try { inp.focus(); inp.select(); } catch (e) {} }, 30);
+    return;
+  }
+
+  var nameBtn = el('button', 'mb-name', '@' + name); nameBtn.type = 'button'; nameBtn.title = 'Fly to my planet';
+  nameBtn.addEventListener('click', function () { focusPlanet(myKey()); });
+  col1.appendChild(nameBtn);
+  var sub = el('div', 'mb-sub');
+  var live = gotSnapshot && firebaseReady;
+  sub.appendChild(el('span', 'dot' + (live ? ' live' : ''))).style.marginRight = '0';
+  sub.appendChild(el('span', '', live ? 'Orbiting live' : 'Syncing…'));
+  sub.appendChild(el('span', 'badge b-' + type, TYPE_LABEL[type]));
+  col1.appendChild(sub); row.appendChild(col1); badge.appendChild(row);
+
+  var actions = el('div', 'mb-actions');
+  var ren = el('button', 'ghost-btn', '✏️ Rename'); ren.type = 'button';
+  ren.addEventListener('click', function () { badgeMode = 'rename'; clearTimeout(armTimer); renderClaim(); });
+  var del = el('button', 'ghost-btn danger' + (badgeMode === 'confirm' ? ' armed' : ''), badgeMode === 'confirm' ? 'Tap again to confirm' : '🗑️ Delete'); del.type = 'button';
+  del.addEventListener('click', function () {
+    if (badgeMode === 'confirm') { clearTimeout(armTimer); deleteClaim(); return; }
+    badgeMode = 'confirm'; renderClaim();
+    armTimer = setTimeout(function () { if (badgeMode === 'confirm') { badgeMode = 'view'; renderClaim(); } }, 3500);
+  });
+  actions.appendChild(ren); actions.appendChild(del); badge.appendChild(actions);
+}
+
+/* ── DB write queue: writes made before Firebase finished loading are flushed once ready ── */
+var dbQueue = [];
+function whenDb(fn) {
+  return new Promise(function (res, rej) {
+    if (col) fn().then(res, rej);
+    else dbQueue.push(function () { fn().then(res, rej); });
+  });
+}
+function serverTs() { return window.firebase.firestore.FieldValue.serverTimestamp(); }
+
+var reconciled = false;
+function onColonists(snap) {
+  gotSnapshot = true; firebaseReady = true; setStatus('live', 'Live');
+  snap.docChanges().forEach(function (ch) {
+    var d = ch.doc.data(); if (!d || !d.username) return;
+    var key = String(d.username).toLowerCase();
+    if (ch.type === 'removed') {
+      removePlanet(key); cacheDel(key);
+      if (myClaim && myKey() === key) { clearMyClaim(); toast('Your planet was removed (or renamed) on another device.', 'info', 4500); }
+      return;
+    }
+    var p = planets[key];
+    if (!p) addPlanet(d);
+    else if (p.data.username !== d.username) { removePlanet(key); addPlanet(d); }
+    else { p.data.createdAt = d.createdAt; if (focus === p) showInfo(p); }
+    cacheAdd(d);
+  });
+  // First real server snapshot: drop stale cached planets that no longer exist, and verify this device's claim
+  if (!reconciled && !snap.metadata.fromCache) {
+    reconciled = true;
+    var present = {};
+    snap.forEach(function (doc) { var d = doc.data(); if (d && d.username) present[String(d.username).toLowerCase()] = 1; });
+    Object.keys(planets).forEach(function (k) { if (!present[k]) { removePlanet(k); cacheDel(k); } });
+    if (myClaim && !planets[myKey()]) { clearMyClaim(); toast('Your planet is no longer in the colony — you can claim a new one.', 'info', 5000); }
+  }
+  if (badgeMode === 'view') renderClaim();
+}
+function onColonistsError(err) {
+  console.error('[Firestore]', err);
+  firebaseReady = false; setStatus('err', 'Offline mode');
+  var code = err && err.code;
+  if (code === 'permission-denied') toast('Database rules block reading. Update your Firestore rules (see setup notes).', 'error', 7000);
+  else toast('Offline mode: your planets are saved on this device for now.', 'error', 5000);
+}
+
+function initFirebase() {
+  loadScript([
+    'https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js',
+    'https://cdn.jsdelivr.net/npm/firebase@10.12.2/firebase-app-compat.js'
+  ]).then(function () {
+    return loadScript([
+      'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js',
+      'https://cdn.jsdelivr.net/npm/firebase@10.12.2/firebase-firestore-compat.js'
+    ]);
+  }).then(function () {
+    var fb = window.firebase;
+    if (!fb.apps.length) fb.initializeApp(firebaseConfig);
+    db = fb.firestore();
+    try { db.settings({ experimentalAutoDetectLongPolling: true, merge: true }); } catch (e) {}
+    col = db.collection(COLLECTION);
+    var q = dbQueue; dbQueue = []; q.forEach(function (f) { try { f(); } catch (e) { console.error(e); } });
+    col.onSnapshot({ includeMetadataChanges: false }, onColonists, onColonistsError);
+    setTimeout(function () { if (!gotSnapshot) { setStatus('', 'Connecting… (showing saved planets)'); } }, 4000);
+    setTimeout(function () { if (!gotSnapshot) { setStatus('err', 'Offline mode'); } }, 12000);
+  }).catch(function (e) {
+    console.error('[Firebase load]', e); setStatus('err', 'Offline mode');
+    toast('Could not reach Firebase. Running in offline mode.', 'error', 5000);
+  });
+}
+setStatus('', 'Connecting…');
+initFirebase();
+
+/* ═════════════ Claim a planet ═════════════ */
+function rollType() { var r = Math.random(); return r < 0.70 ? 'rocky' : r < 0.90 ? 'ringed' : 'golden'; }
+function withTimeout(promise, ms) { return Promise.race([promise, new Promise(function (_, rej) { setTimeout(function () { rej({ code: 'timeout' }); }, ms); })]); }
+
+$('claim-form').addEventListener('submit', function (e) {
+  e.preventDefault();
+  var name = normalize($('username').value);
+  if (!USER_RE.test(name)) { toast('Enter a valid Instagram username (letters, numbers, . and _)', 'error'); return; }
+  var key = name.toLowerCase();
+
+  // one claim per device
+  if (myClaim) { toast('You already claimed @' + myClaim.username + ' on this device.', 'info'); renderClaim(); return; }
+  if (planets[key]) { toast('@' + planets[key].data.username + ' is already taken — flying there!', 'info'); focusPlanet(key); $('username').blur(); return; }
+
+  var type = rollType(), seed = Math.floor(Math.random() * 4294967295);
+  var data = { username: name, type: type, seed: seed, createdAt: new Date() };
+
+  // 1) update the 3D space + UI instantly (form is replaced by the management badge)
+  pendingFocus = key; addPlanet(data); cacheAdd(data); saveMyClaim(name);
+  $('username').value = ''; $('username').blur();
+  if (type === 'golden') toast('🎉 You found a Rare Golden Planet!', 'rare', 5500);
+  else if (type === 'ringed') toast('🪐 Nice! You got a Ringed Planet!', 'ringed', 4200);
+  else toast('🌍 Planet claimed! Welcome to the colony.', 'info', 3500);
+
+  // 2) save permanently to Firestore (in the background)
+  withTimeout(whenDb(function () { return col.doc(key).set({ username: name, type: type, seed: seed, createdAt: serverTs() }); }), 8000)
+    .catch(function (err) {
+      if (err && err.code === 'timeout') { toast('Saved on this device — it will sync once the database connects.', 'info', 4500); return; }
+      console.error('[Firestore write]', err);
+      removePlanet(key); cacheDel(key);
+      if (myClaim && myKey() === key) clearMyClaim();   // bring the claim form back
+      if (err && err.code === 'permission-denied') toast('Could not save: username already claimed or database rules block writes.', 'error', 6500);
+      else toast('Could not save your planet. Please try again.', 'error', 5000);
+    });
+});
+
+/* ═════════════ Rename / Delete my planet ═════════════ */
+function renameClaim(raw) {
+  if (!myClaim) return;
+  var nn = normalize(raw);
+  if (!USER_RE.test(nn)) { toast('Enter a valid username (letters, numbers, . and _)', 'error'); return; }
+  var oldName = myClaim.username, oldKey = oldName.toLowerCase(), newKey = nn.toLowerCase();
+  if (nn === oldName) { badgeMode = 'view'; renderClaim(); return; }
+  if (newKey !== oldKey && planets[newKey]) { toast('@' + nn + ' is already taken.', 'error'); return; }
+
+  var old = planets[oldKey];
+  var type = old ? old.type : 'rocky', seed = old && old.data.seed != null ? old.data.seed : Math.floor(Math.random() * 4294967295);
+  var created = old && old.data.createdAt ? old.data.createdAt : null;
+  var oldData = { username: oldName, type: type, seed: seed, createdAt: created || new Date() };
+  var newData = { username: nn, type: type, seed: seed, createdAt: created || new Date() };
+
+  // optimistic: swap the planet instantly
+  removePlanet(oldKey); cacheDel(oldKey);
+  pendingFocus = newKey; addPlanet(newData); cacheAdd(newData); saveMyClaim(nn);
+  toast('✏️ Renamed to @' + nn, 'info', 2500);
+
+  withTimeout(whenDb(function () {
+    var b = db.batch();
+    if (newKey === oldKey) b.update(col.doc(oldKey), { username: nn });
+    else { b.set(col.doc(newKey), { username: nn, type: type, seed: seed, createdAt: created || serverTs() }); b.delete(col.doc(oldKey)); }
+    return b.commit();
+  }), 8000).catch(function (err) {
+    if (err && err.code === 'timeout') { toast('Renamed on this device — it will sync once the database connects.', 'info', 4500); return; }
+    console.error('[Firestore rename]', err);
+    // roll back
+    removePlanet(newKey); cacheDel(newKey); addPlanet(oldData); cacheAdd(oldData); saveMyClaim(oldName);
+    if (err && err.code === 'permission-denied') toast('Rename blocked by database rules. Update Firestore rules to allow it.', 'error', 6500);
+    else toast('Could not rename your planet. Please try again.', 'error', 5000);
+  });
+}
+
+function deleteClaim() {
+  if (!myClaim) return;
+  var name = myClaim.username, key = name.toLowerCase(), p = planets[key];
+  var backup = { username: name, type: p ? p.type : 'rocky', seed: p && p.data.seed != null ? p.data.seed : null, createdAt: p ? p.data.createdAt : new Date() };
+
+  // optimistic: remove planet, forget the claim, bring the form back
+  removePlanet(key); cacheDel(key); clearMyClaim();
+  toast('🗑️ Planet deleted. You can claim a new one.', 'info', 3200);
+
+  withTimeout(whenDb(function () { return col.doc(key).delete(); }), 8000).catch(function (err) {
+    if (err && err.code === 'timeout') { toast('Deleted on this device — it will sync once the database connects.', 'info', 4500); return; }
+    console.error('[Firestore delete]', err);
+    addPlanet(backup); cacheAdd(backup); saveMyClaim(name);   // restore
+    if (err && err.code === 'permission-denied') toast('Delete blocked by database rules. Update Firestore rules to allow it.', 'error', 6500);
+    else toast('Could not delete your planet. Please try again.', 'error', 5000);
+  });
+}
+
+renderClaim();   // restore claimed state from localStorage on load
+
+/* ═════════════ Search ═════════════ */
+var searchInput = $('search'), listEl = $('search-list');
+function hideList() { listEl.classList.add('hidden'); listEl.innerHTML = ''; }
+searchInput.addEventListener('input', function () {
+  var q = normalize(searchInput.value).toLowerCase(); listEl.innerHTML = '';
+  if (!q) return hideList();
+  var matches = Object.keys(planets).filter(function (k) { return k.indexOf(q) !== -1; }).slice(0, 8);
+  if (!matches.length) return hideList();
+  matches.forEach(function (k) {
+    var p = planets[k], b = document.createElement('button'); b.type = 'button';
+    b.textContent = '@' + p.data.username + (p.type === 'golden' ? '  ✨' : p.type === 'ringed' ? '  🪐' : '');
+    b.addEventListener('click', function () { searchInput.value = p.data.username; hideList(); focusPlanet(k); searchInput.blur(); });
+    listEl.appendChild(b);
+  });
+  listEl.classList.remove('hidden');
+});
+document.addEventListener('click', function (e) { if (!$('searchWrap').contains(e.target)) hideList(); });
+$('search-form').addEventListener('submit', function (e) {
+  e.preventDefault();
+  var q = normalize(searchInput.value).toLowerCase(); if (!q) return; hideList();
+  var key = planets[q] ? q : Object.keys(planets).filter(function (k) { return k.indexOf(q) !== -1; })[0];
+  if (key && focusPlanet(key)) { searchInput.blur(); toast('🚀 Flying to @' + planets[key].data.username, 'info', 1800); }
+  else toast('No planet found for “' + q + '”', 'error');
+});
+$('reset').addEventListener('click', function () {
+  if (focus) clearFocus(); else { resetting = true; cam.goalDist = HOME_DIST; flyUntil = performance.now() + 2400; }
+});
+$('info-close').addEventListener('click', clearFocus);
+
+} // startApp
+})();
+</script>
+</body>
+</html>
